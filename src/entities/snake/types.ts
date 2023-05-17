@@ -5,6 +5,7 @@ export interface SnakeOptions {
 	cellSize: number
 	width: number
 	height: number
+	fps: number
 }
 
 export type Direction = 'left' | 'right' | 'up' | 'down'
@@ -26,7 +27,7 @@ export interface CellOptions {
 	x: number
 	y: number
 	size: number
-	offset: number
+	offset: Coords
 	type: CellType
 }
 

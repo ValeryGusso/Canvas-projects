@@ -1,96 +1,120 @@
 import { Cell } from './cell'
 import { AvailableDirection, Direction, SnakeOptions, StackItem } from './types'
 
-export class Game {
+export class Snake {
 	private readonly canvas
 	private ctx
 
-	private readonly border = 50
-	private readonly canvasWidth
-	private readonly canvasHeight
-	private readonly fieldWidth
-	private readonly fieldHeight
-	private readonly width
-	private readonly height
-	private readonly cellSize
-
+	/* GAME */
 	private direction: Direction = 'right'
-	private apple: Cell
 	private snake: Cell[] = []
+	private apple: Cell
 	private score = 0
 	private isOver = false
-	private paused = true
+	private options
+	private get cellSize() {
+		return this.options.cellSize
+	}
+	private get fieldWidth() {
+		return this.cellSize * this.options.width
+	}
+	private get fieldHeight() {
+		return this.cellSize * this.options.height
+	}
+	private get canvasWidth() {
+		return this.cellSize * this.options.width + this.borderX * 2
+	}
+	private get canvasHeight() {
+		return this.cellSize * this.options.height + this.borderY * 2
+	}
+	private get borderX() {
+		return Math.floor((window.innerWidth * 0.8 - this.cellSize * this.options.width) / 2)
+	}
+	private get borderY() {
+		return Math.floor((window.innerHeight * 0.75 - this.cellSize * this.options.height) / 2)
+	}
+	private get width() {
+		return this.options.width
+	}
+	private get height() {
+		return this.options.height
+	}
 
+	/* CALCULATOR */
 	private readonly maxStack = 50 // max stack length
 	private calculateTime = 0 // time to calculate next step
 	private iterations = 0 // iterations spent count
 
+	/* LIFE CICLE */
+	private paused = true
 	private prevTime = 0 //previus time stamp
 	private dt = 0 // delta time
-	private fps = 30 // frames per second(game speed)
-	private ttf = 1000 / this.fps // time to frame
+	private id = 0 // requestAnimationFrame ID
+	private get fps() {
+		return this.options.fps
+	}
+	private get ttf() {
+		return 1000 / this.fps // time to frame
+	}
 
 	constructor(canvas: HTMLCanvasElement, options: SnakeOptions) {
-		this.canvasWidth = options.cellSize * options.width + this.border * 2
-		this.canvasHeight = options.cellSize * options.height + this.border * 2
-		this.fieldWidth = options.cellSize * options.width
-		this.fieldHeight = options.cellSize * options.height
-		this.width = options.width
-		this.height = options.height
-		this.cellSize = options.cellSize
+		this.canvas = canvas
+		const ctx = this.canvas.getContext('2d', { willReadFrequently: true })
+		if (!ctx) {
+			throw new Error('Context dont exist')
+		}
+		this.ctx = ctx
 
+		this.options = options
 		canvas.width = this.canvasWidth
 		canvas.height = this.canvasHeight
 
-		this.canvas = canvas
-		this.ctx = this.canvas.getContext('2d')
-
 		// const x = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7]
 		// const y = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 16, 16, 15, 14, 13, 12, 11, 10, 9, 8]
-		const x = [
-			38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 17, 17, 17, 16, 16, 16,
-			16, 16, 16, 16, 16, 16, 16, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 6, 6,
-			7, 8, 9, 10, 11, 12, 13, 14, 15,
-		]
-		const y = [
-			11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 12, 13, 14, 14, 13, 12,
-			11, 10, 9, 8, 7, 6, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 6, 7, 7, 7, 7, 7,
-			7, 7, 7, 7, 7,
-		]
+		// const x = [
+		// 	38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 17, 17, 17, 16, 16, 16,
+		// 	16, 16, 16, 16, 16, 16, 16, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 6, 6,
+		// 	7, 8, 9, 10, 11, 12, 13, 14, 15,
+		// ]
+		// const y = [
+		// 	11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 12, 13, 14, 14, 13, 12,
+		// 	11, 10, 9, 8, 7, 6, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 6, 7, 7, 7, 7, 7,
+		// 	7, 7, 7, 7, 7,
+		// ]
 
-		console.log(x.length, y.length)
+		// console.log(x.length, y.length)
 
-		for (let i = 0; i < x.length; i++) {
-			this.snake.push(
-				new Cell(this.ctx!, {
-					x: x[i],
-					y: y[i],
-					size: this.cellSize,
-					offset: this.border,
-					type: 'snake',
-				})
-			)
-		}
+		// for (let i = 0; i < x.length; i++) {
+		// 	this.snake.push(
+		// 		new Cell(this.ctx!, {
+		// 			x: x[i],
+		// 			y: y[i],
+		// 			size: this.cellSize,
+		// 			offset: {x: this.borderX, y: this.borderY},
+		// 			type: 'snake',
+		// 		})
+		// 	)
+		// }
 
-		this.apple = new Cell(this.ctx!, {
-			x: 28,
-			y: 5,
-			size: this.cellSize,
-			offset: this.border,
-			type: 'apple',
-		})
+		// this.apple = new Cell(this.ctx!, {
+		// 	x: 28,
+		// 	y: 5,
+		// 	size: this.cellSize,
+		// 	offset: {x: this.borderX, y: this.borderY},
+		// 	type: 'apple',
+		// })
 
-		// this.snake.push(
-		// 	new Cell(this.ctx!, {
-		// 		x: Math.floor(Math.random() * this.width),
-		// 		y: Math.floor(Math.random() * this.height),
-		// 		size: this.cellSize,
-		// 		offset: this.border,
-		// 		type: 'snake',
-		// 	})
-		// )
+		this.snake.push(
+			new Cell(this.ctx!, {
+				x: Math.floor(Math.random() * this.width),
+				y: Math.floor(Math.random() * this.height),
+				size: this.cellSize,
+				offset: { x: this.borderX, y: this.borderY },
+				type: 'snake',
+			})
+		)
 
-		// this.apple = this.createApple()
+		this.apple = this.createApple()
 
 		this.draw()
 		this.calculator()
@@ -102,39 +126,42 @@ export class Game {
 	}
 
 	private drawGrid() {
-		if (!this.ctx) {
-			throw new Error('Canvas doesn`t exist')
-		}
-
 		this.ctx.strokeStyle = '#adacea41'
 		this.ctx.fillStyle = '#adacea'
 		this.ctx.font = '22px serif'
+		// this.ctx.textAlign = 'center'
 
 		/* DRAW X */
 		for (let y = 0; y <= this.height; y++) {
 			this.ctx.beginPath()
-			this.ctx.moveTo(this.border, this.border + y * this.cellSize)
-			this.ctx.lineTo(this.border + this.fieldWidth, this.border + y * this.cellSize)
+			this.ctx.moveTo(this.borderX, this.borderY + y * this.cellSize)
+			this.ctx.lineTo(this.borderX + this.fieldWidth, this.borderY + y * this.cellSize)
 			this.ctx.stroke()
 			if (y < this.height) {
-				this.ctx.fillText(y.toString(), 15, this.border + this.cellSize * y + this.cellSize / 2 + 10)
+				this.ctx.fillText(
+					(y + 1).toString(),
+					this.borderX - 30,
+					this.borderY + this.cellSize * y + this.cellSize / 2 + 10
+				)
 			}
 		}
 
 		/* DRAW Y */
 		for (let x = 0; x <= this.width; x++) {
 			this.ctx.beginPath()
-			this.ctx.moveTo(this.border + x * this.cellSize, this.border)
-			this.ctx.lineTo(this.border + x * this.cellSize, this.fieldHeight + this.border)
+			this.ctx.moveTo(this.borderX + x * this.cellSize, this.borderY)
+			this.ctx.lineTo(this.borderX + x * this.cellSize, this.fieldHeight + this.borderY)
 			this.ctx.stroke()
 			if (x < this.width) {
-				this.ctx.fillText(x.toString(), this.border + (x + 1) * this.cellSize - this.cellSize + 5, 35)
+				this.ctx.fillText((x + 1).toString(), this.borderX + (x + 1) * this.cellSize - this.cellSize + 5, 35)
 			}
 		}
 
-		this.ctx.fillText(`Score: ${this.score}`, 150, this.canvasHeight - 15)
-		this.ctx.fillText(`Time to calculate: ${this.calculateTime} ms`, this.fieldWidth / 2 - 200, this.canvasHeight - 15)
-		this.ctx.fillText(`Iterations: ${this.iterations}`, this.fieldWidth / 2 + 200, this.canvasHeight - 15)
+		this.ctx.fillText(
+			`Score: ${this.score} / Time to calculate: ${this.calculateTime} ms / Iterations: ${this.iterations}`,
+			this.canvasWidth / 2 - 215,
+			this.canvasHeight - 20
+		)
 	}
 
 	private draw() {
@@ -163,7 +190,7 @@ export class Game {
 			x,
 			y,
 			size: this.cellSize,
-			offset: this.border,
+			offset: { x: this.borderX, y: this.borderY },
 			type: 'apple',
 		})
 	}
@@ -218,7 +245,7 @@ export class Game {
 				x,
 				y,
 				size: this.cellSize,
-				offset: this.border,
+				offset: { x: this.borderX, y: this.borderY },
 				type: 'snake',
 			})
 		)
@@ -247,7 +274,10 @@ export class Game {
 			this.step()
 			this.draw()
 		}
-		requestAnimationFrame(this.update.bind(this))
+
+		if (!this.paused) {
+			this.id = requestAnimationFrame(this.update.bind(this))
+		}
 	}
 
 	/* AUTOPLAY */
@@ -268,7 +298,7 @@ export class Game {
 					x,
 					y,
 					size: this.cellSize,
-					offset: this.border,
+					offset: { x: this.borderX, y: this.borderY },
 					type: 'snake',
 				})
 			)
@@ -349,56 +379,52 @@ export class Game {
 			}
 
 			availableDirections.sort((a, b) => b.distance - a.distance)
-			// availableDirections.sort(() => Math.random() - 0.1)
-			// const index = availableDirections.findIndex(el => el.distance === el.clearDistance)
-			// if (index > -1) {
-			// 	const preferred = availableDirections.splice(index, 1)
-			// 	availableDirections.push(preferred[0])
-			// 	availableDirections.sort((a, b) => b.clearDistance - a.clearDistance)
-			// }
+			availableDirections.sort((a, b) => b.clearDistance - a.clearDistance)
 
 			if (availableDirections.length) {
 				stack.push({
 					snakeImage,
 					directions: availableDirections,
-					selected: availableDirections[availableDirections.length - 1]?.direction || this.direction,
+					selected: availableDirections[availableDirections.length - 1].direction,
 				})
-				return true
-			} else {
-				// console.log('UVAGA')
-				emptyCase++
-				return false
+				return
 			}
-		}
-
-		const checkLine = (snakeImage: Cell[]) => {
-			const head = snakeImage[snakeImage.length - 1].coords
-			const apple = this.apple.coords
-			const availableDirections: AvailableDirection[] = []
+			emptyCase++
 		}
 
 		const calculate = () => {
+			// if (stack[0]?.directions.some(dir => dir.clearDistance === dir.distance)) {
+			// 	const availableDirections = stack[0].directions
+			// 	const preffer = availableDirections.filter(dir => dir.distance === dir.clearDistance)
+
+			// 	if (preffer.length > 1) {
+			// 		preffer.sort((a, b) => a.clearDistance - b.clearDistance)
+			// 	}
+
+			// 	const head = stack[0].snakeImage[stack[0].snakeImage.length - 1].coords
+
+			// 	if (
+			// 		(head.x === apple.x && (preffer[0].direction === 'up' || preffer[0].direction === 'down')) ||
+			// 		(head.y === apple.y && (preffer[0].direction === 'right' || preffer[0].direction === 'left'))
+			// 	) {
+			// 		stack[0].selected = preffer[0].direction
+			// 		console.log('FREE CASE')
+			// 		return
+			// 	}
+			// }
+
 			while (true) {
 				counter++
 
-				if (!stack.length) {
-					console.log('CASE 0')
+				if (stack.length === this.maxStack) {
 					break
 				}
 
-				if (stack.length === 1 && !stack[0].directions.length && counter !== 1) {
-					this.direction = stack[0].selected
-					console.log('CASE 1')
+				if (stack.length === 1 && stack[0].directions.length === 0) {
 					break
 				}
 
-				if (stack.length > this.maxStack) {
-					this.direction = stack[0].selected
-					break
-				}
-
-				if (counter > this.maxStack ** 3 * 2) {
-					this.direction = stack[0].selected
+				if (counter > this.maxStack ** 3) {
 					break
 				}
 
@@ -409,45 +435,63 @@ export class Game {
 					continue
 				}
 
+				// if (curFrame.directions.some(dir => dir.distance === dir.clearDistance)) {
+				// 	break
+				// }
+
 				const curDir = curFrame.directions.pop()!
 				curFrame.selected = curDir.direction
-
 				const newImage = updateImage(curFrame.snakeImage, curDir.direction)
 				const newHead = newImage[newImage.length - 1].coords
 
 				if (newHead.x === apple.x && newHead.y === apple.y) {
-					this.direction = stack[0].selected
 					break
 				}
-				const success = createStackItem(newImage)
-				if (!success && !curDir.direction.length) {
-					stack.pop()
-				}
+				createStackItem(newImage)
 			}
 		}
 
 		const start = Date.now()
 		createStackItem(this.snake)
 		calculate()
+		this.direction = stack[0].selected
 		this.calculateTime = Date.now() - start
 		this.iterations = counter
-		// console.log('Отработало за ', Date.now() - start, ' мс и ', counter, 'итераций', stack)
 		if (counter > 500) {
-			this.paused = true
-			console.log(emptyCase)
-			console.log('Отработало за ', Date.now() - start, ' мс и ', counter, 'итераций', stack)
-			console.log(JSON.stringify(stack))
+			// console.log(counter)
+			// this.paused = true
+			// console.log('Отработало за ', Date.now() - start, ' мс и ', counter, 'итераций', stack)
+			// console.log(JSON.stringify(stack))
 		}
 	}
 
 	/* PUBLICK CONTROLLERS */
+	resize() {
+		this.canvas.width = this.canvasWidth
+		this.canvas.height = this.canvasHeight
+
+		this.reset()
+		this.draw()
+	}
+
+	remove() {
+		this.score = 0
+		this.snake = []
+		this.isOver = false
+		this.paused = true
+		cancelAnimationFrame(this.id)
+		this.clear()
+	}
+
 	start() {
 		this.paused = false
-		requestAnimationFrame(this.update.bind(this))
+		this.id = requestAnimationFrame(this.update.bind(this))
 	}
+
 	stop() {
 		this.paused = true
 	}
+
 	reset() {
 		this.score = 0
 		this.snake = []
@@ -459,7 +503,7 @@ export class Game {
 				x: Math.floor(Math.random() * this.width),
 				y: Math.floor(Math.random() * this.height),
 				size: this.cellSize,
-				offset: this.border,
+				offset: { x: this.borderX, y: this.borderY },
 				type: 'snake',
 			})
 		)
@@ -467,6 +511,7 @@ export class Game {
 		this.apple = this.createApple()
 		this.draw()
 	}
+
 	oneStep() {
 		this.calculator()
 		this.step()

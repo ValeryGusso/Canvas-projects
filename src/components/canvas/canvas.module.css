@@ -8,8 +8,9 @@
 	/* border: 1px solid red; */
 }
 .canvas {
+	margin-top: 1em;
 	border: 1px solid var(--light-color);
-	border-radius: 1.5em;
+	/* border-radius: 1.5em; */
 }
 button {
 	margin-top: 20px;
