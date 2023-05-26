@@ -56,9 +56,9 @@ const Canvas: FC = () => {
 
 	const imageOptions = useMemo<ImageOptions>(() => {
 		return {
-			pixelSize: 0,
-			pixelCount: 0,
-			fps: 0,
+			pixelSize: 4,
+			pushForce: true,
+			radius: 50,
 		}
 	}, [])
 

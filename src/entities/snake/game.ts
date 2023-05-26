@@ -41,7 +41,8 @@ export class Snake {
 	}
 
 	/* CALCULATOR */
-	private readonly maxStack = 50 // max stack length
+	private readonly maxStack = 100 // max stack length
+	private route: Direction[] = []
 	private calculateTime = 0 // time to calculate next step
 	private iterations = 0 // iterations spent count
 
@@ -90,17 +91,17 @@ export class Snake {
 		// 			x: x[i],
 		// 			y: y[i],
 		// 			size: this.cellSize,
-		// 			offset: {x: this.borderX, y: this.borderY},
+		// 			offset: { x: this.borderX, y: this.borderY },
 		// 			type: 'snake',
 		// 		})
 		// 	)
 		// }
 
 		// this.apple = new Cell(this.ctx!, {
-		// 	x: 28,
-		// 	y: 5,
+		// 	x: 3,
+		// 	y: 15,
 		// 	size: this.cellSize,
-		// 	offset: {x: this.borderX, y: this.borderY},
+		// 	offset: { x: this.borderX, y: this.borderY },
 		// 	type: 'apple',
 		// })
 
@@ -139,7 +140,8 @@ export class Snake {
 			this.ctx.stroke()
 			if (y < this.height) {
 				this.ctx.fillText(
-					(y + 1).toString(),
+					y /*+ 1*/
+						.toString(),
 					this.borderX - 30,
 					this.borderY + this.cellSize * y + this.cellSize / 2 + 10
 				)
@@ -153,7 +155,12 @@ export class Snake {
 			this.ctx.lineTo(this.borderX + x * this.cellSize, this.fieldHeight + this.borderY)
 			this.ctx.stroke()
 			if (x < this.width) {
-				this.ctx.fillText((x + 1).toString(), this.borderX + (x + 1) * this.cellSize - this.cellSize + 5, 35)
+				this.ctx.fillText(
+					x /*+ 1*/
+						.toString(),
+					this.borderX + (x + 1) * this.cellSize - this.cellSize + 5,
+					this.borderY - 15
+				)
 			}
 		}
 
@@ -265,14 +272,27 @@ export class Snake {
 		if (!this.isOver && !this.paused && this.dt > this.ttf) {
 			this.dt = 0
 			try {
-				this.calculator()
+				if (!this.route.length) {
+					this.calculator()
+				}
+
+				this.direction = this.route.shift()!
+
+				const nextStep = this.updateCoords(this.snake, this.direction)
+
+				if (!this.isEmpty(nextStep.x, nextStep.y, this.snake)) {
+					this.isOver = true
+					this.paused = true
+					console.log('OVER')
+					return
+				}
+
+				this.step()
+				this.draw()
 			} catch (err) {
 				this.isOver = true
 				console.log(err)
 			}
-
-			this.step()
-			this.draw()
 		}
 
 		if (!this.paused) {
@@ -285,6 +305,7 @@ export class Snake {
 		let counter = 0
 		let stop = false
 		let emptyCase = 0
+		this.route.length = 0
 
 		const stack: StackItem[] = []
 		const apple = this.apple.coords
@@ -294,7 +315,7 @@ export class Snake {
 			const newImage = [...snakeImage]
 
 			newImage.push(
-				new Cell(this.ctx!, {
+				new Cell(this.ctx, {
 					x,
 					y,
 					size: this.cellSize,
@@ -318,68 +339,102 @@ export class Snake {
 			const right = this.updateCoords(snakeImage, 'right')
 
 			if (this.isEmpty(up.x, up.y, snakeImage)) {
-				let distance = head.y - apple.y || this.height
+				let distance = head.y - apple.y
 				distance = distance > 0 ? distance : this.height + distance
 				const data: AvailableDirection = { direction: 'up', distance, clearDistance: 1 }
+				// console.log('start up')
+				for (let y = up.y; y !== apple.y; y--) {
+					if (!this.isEmpty(up.x, y, snakeImage)) {
+						break
+					}
+					data.clearDistance++
 
-				// for (let y = up.y; y !== apple.y; y--) {
-				// 	if (this.isEmpty(up.x, y, snakeImage)) {
-				// 		data.clearDistance++
-				// 	}
-				// 	if (y === 0) {
-				// 		y = this.height
-				// 	}
-				// }
+					if (y === 0) {
+						data.clearDistance++
+						if (apple.y === this.height - 1) {
+							break
+						} else {
+							y = this.height - 1
+						}
+					}
+				}
+				// console.log('end up')
 				availableDirections.push(data)
 			}
 			if (this.isEmpty(down.x, down.y, snakeImage)) {
-				let distance = apple.y - head.y || this.height
+				let distance = apple.y - head.y
 				distance = distance > 0 ? distance : this.height + distance
 				const data: AvailableDirection = { direction: 'down', distance, clearDistance: 1 }
+				// console.log('start down')
+				for (let y = down.y; y !== apple.y; y++) {
+					if (!this.isEmpty(down.x, y, snakeImage)) {
+						break
+					}
+					data.clearDistance++
 
-				// for (let y = down.y; y !== apple.y; y++) {
-				// 	if (this.isEmpty(down.x, y, snakeImage)) {
-				// 		data.clearDistance++
-				// 	}
-				// 	if (y === this.height - 1) {
-				// 		y = 0
-				// 	}
-				// }
+					if (y === this.height - 1) {
+						data.clearDistance++
+						if (apple.y === 0) {
+							break
+						} else {
+							y = 0
+						}
+					}
+				}
+				// console.log('end down')
 				availableDirections.push(data)
 			}
 			if (this.isEmpty(left.x, left.y, snakeImage)) {
-				let distance = head.x - apple.x || this.width
+				let distance = head.x - apple.x
 				distance = distance > 0 ? distance : this.width + distance
 				const data: AvailableDirection = { direction: 'left', distance, clearDistance: 1 }
+				// console.log('start left')
+				for (let x = left.x; x !== apple.x; x--) {
+					if (!this.isEmpty(x, left.y, snakeImage)) {
+						break
+					}
+					data.clearDistance++
 
-				// for (let x = left.x; x !== apple.x; x--) {
-				// 	if (this.isEmpty(x, left.y, snakeImage)) {
-				// 		data.clearDistance++
-				// 	}
-				// 	if (x === 0) {
-				// 		x = this.width
-				// 	}
-				// }
+					if (x === 0) {
+						data.clearDistance++
+						if (apple.x === this.width - 1) {
+							break
+						} else {
+							x = this.width - 1
+						}
+					}
+				}
+				// console.log('end left')
 				availableDirections.push(data)
 			}
 			if (this.isEmpty(right.x, right.y, snakeImage)) {
-				let distance = apple.x - head.x || this.width
+				let distance = apple.x - head.x
 				distance = distance > 0 ? distance : this.width + distance
 				const data: AvailableDirection = { direction: 'right', distance, clearDistance: 1 }
+				// console.log('start right')
+				for (let x = right.x; x !== apple.x; x++) {
+					if (!this.isEmpty(x, right.y, snakeImage)) {
+						break
+					}
+					data.clearDistance++
 
-				// for (let x = right.x; x !== apple.x; x++) {
-				// 	if (this.isEmpty(x, right.y, snakeImage)) {
-				// 		data.clearDistance++
-				// 	}
-				// 	if (x === this.width) {
-				// 		x = 0
-				// 	}
-				// }
+					if (x === this.width - 1) {
+						data.clearDistance++
+						if (apple.x === 0) {
+							break
+						} else {
+							x = 0
+						}
+					}
+				}
+				// console.log('end right')
 				availableDirections.push(data)
 			}
 
 			availableDirections.sort((a, b) => b.distance - a.distance)
-			availableDirections.sort((a, b) => b.clearDistance - a.clearDistance)
+			// availableDirections.sort((a, b) => b.clearDistance - a.clearDistance)
+			// availableDirections.sort((_, b) => (b.distance - b.clearDistance ? -1 : 1))
+			// console.log('DIR: ', { ...availableDirections })
 
 			if (availableDirections.length) {
 				stack.push({
@@ -387,9 +442,50 @@ export class Snake {
 					directions: availableDirections,
 					selected: availableDirections[availableDirections.length - 1].direction,
 				})
-				return
 			}
 			emptyCase++
+		}
+
+		const calculate2 = () => {
+			while (counter < this.maxStack ** 3 && stack.length && stack.length < this.maxStack) {
+				counter++
+
+				/* GET START DATA */
+				const curFrame = stack[stack.length - 1]
+				if (!curFrame) {
+					console.log('EMPTY STACK')
+					break
+				}
+
+				// console.log(curFrame.snakeImage)
+				const curDir = curFrame.directions.pop()
+
+				if (!curDir) {
+					// console.log('DELETE ITEM')
+					stack.pop()
+					continue
+				}
+
+				// if (curDir.clearDistance === curDir.distance) {
+				// 	for (let i = 0; i < curDir.distance - 1; i++) {
+				// 		stack.push({ snakeImage: [], directions: [], selected: curDir.direction })
+				// 	}
+				// 	break
+				// }
+
+				/* PREVALIDATION */
+
+				curFrame.selected = curDir.direction
+				const newImage = updateImage(curFrame.snakeImage, curDir.direction)
+				const newHead = newImage[newImage.length - 1].coords
+
+				if (newHead.x === apple.x && newHead.y === apple.y) {
+					// console.log('APPLE')
+					break
+				} else {
+					createStackItem(newImage)
+				}
+			}
 		}
 
 		const calculate = () => {
@@ -453,16 +549,20 @@ export class Snake {
 
 		const start = Date.now()
 		createStackItem(this.snake)
-		calculate()
-		this.direction = stack[0].selected
+		calculate2()
+		// console.log('----------------------------')
+		// console.log('STACK: ', stack)
+		// console.log('COUNTER: ', counter)
+		// calculate()
+		if (stack.length) {
+			for (let i = 0; i < stack.length; i++) {
+				this.route.push(stack[i].selected)
+			}
+		} else {
+			console.log('NO WAY')
+		}
 		this.calculateTime = Date.now() - start
 		this.iterations = counter
-		if (counter > 500) {
-			// console.log(counter)
-			// this.paused = true
-			// console.log('Отработало за ', Date.now() - start, ' мс и ', counter, 'итераций', stack)
-			// console.log(JSON.stringify(stack))
-		}
 	}
 
 	/* PUBLICK CONTROLLERS */
@@ -514,7 +614,7 @@ export class Snake {
 
 	oneStep() {
 		this.calculator()
-		this.step()
-		this.draw()
+		// this.step()
+		// this.draw()
 	}
 }

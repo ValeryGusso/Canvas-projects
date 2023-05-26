@@ -1,7 +1,7 @@
 export type ImageOptions = {
 	pixelSize: number
-	pixelCount: number
-	fps: number
+	pushForce: boolean
+	radius: number
 }
 
 export type ParentController = {
@@ -27,4 +27,5 @@ export type Cursor = {
 	y: number
 	radius: number
 	isActive: boolean
+	force: -1 | 1
 }

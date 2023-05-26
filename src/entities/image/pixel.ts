@@ -40,9 +40,9 @@ export class Pixel {
 			if (Math.abs(distance) < this.parent.cursor.radius && !this.excited) {
 				this.excited = true
 				const angle = Math.atan2(dy, dx)
-				const f = this.parent.cursor.radius / distance / this.weight
-				this.vx += Math.cos(angle) * -f * this.weight * this.size * 20
-				this.vy += Math.sin(angle) * -f * this.weight * this.size * 20
+				const f = (this.parent.cursor.radius / distance / this.weight) * this.parent.cursor.force
+				this.vx += Math.cos(angle) * f * this.weight * this.size * 20
+				this.vy += Math.sin(angle) * f * this.weight * this.size * 20
 			}
 		}
 

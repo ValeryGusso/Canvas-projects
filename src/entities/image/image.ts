@@ -9,16 +9,37 @@ export class ImageDestroyer {
 	private mousedown
 	private mouseup
 	private mousemove
+
 	private options
-	private paused = true
-	private cursor: Cursor = { x: 0, y: 0, radius: 50, isActive: false }
+	private get mergePixels() {
+		return this.options.pixelSize
+	}
+	private get force() {
+		return this.options.pushForce ? -1 : 1
+	}
+	private get radius() {
+		return this.options.radius
+	}
+	private get controller() {
+		const controller: ParentController = {
+			canvas: this.canvas,
+			ctx: this.ctx,
+			cursor: this.cursor,
+		}
+		return controller
+	}
+
+	private cursor: Cursor
 	private base64 = ''
 	private width = 0
 	private height = 0
+
 	private originPixels = new Map<string, PixelParams>()
-	private mergePixels = 3
 	private renderPixels: Pixel[] = []
+
 	private id = 0 // requestAnimationFrame ID
+	private prevTime = 0
+	private dt = 0
 
 	constructor(canvas: HTMLCanvasElement, options: ImageOptions) {
 		this.canvas = canvas
@@ -30,9 +51,12 @@ export class ImageDestroyer {
 		this.ctx = ctx
 
 		this.options = options
+		this.cursor = { x: 0, y: 0, radius: this.radius, isActive: false, force: this.force }
 
 		this.mousedown = (e: MouseEvent) => {
 			this.cursor.isActive = true
+			this.cursor.radius = this.radius
+			this.cursor.force = this.force
 			this.cursor.x = e.offsetX
 			this.cursor.y = e.offsetY
 		}
@@ -61,11 +85,15 @@ export class ImageDestroyer {
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
 	}
 
-	private update() {
-		// const img = new Image()
-		// img.src = this.base64
-		// this.ctx.drawImage(img, 0, 0)
-		// const start = Date.now()
+	private drawInfo() {
+		this.ctx.strokeStyle = '#adacea41'
+		this.ctx.fillStyle = '#adacea'
+		this.ctx.font = '22px serif'
+		this.ctx.fillText(`FPS: ${Math.round(1000 / this.dt)}`, 10, 30)
+		this.ctx.fillText(`Total pixels: ${this.renderPixels.length}`, 10, this.canvas.height - 15)
+	}
+
+	private update(timestamp: number) {
 		this.clear()
 		this.renderPixels.forEach(pixel => {
 			pixel.update()
@@ -77,17 +105,10 @@ export class ImageDestroyer {
 			this.ctx.arc(this.cursor.x, this.cursor.y, this.cursor.radius, 0, Math.PI * 2)
 			this.ctx.stroke()
 		}
-		// console.log(Date.now() - start)
+		this.drawInfo()
+		this.dt = timestamp - this.prevTime
+		this.prevTime = timestamp
 		this.id = requestAnimationFrame(this.update.bind(this))
-	}
-
-	private get controller() {
-		const controller: ParentController = {
-			canvas: this.canvas,
-			ctx: this.ctx,
-			cursor: this.cursor,
-		}
-		return controller
 	}
 
 	private generateIndex(x: number, y: number) {
@@ -100,8 +121,10 @@ export class ImageDestroyer {
 
 	private shakalizator() {
 		this.renderPixels = []
+		// let str = ''
 
 		for (let col = 0; col < this.width - this.mergePixels; col += this.mergePixels) {
+			// str += '\n'
 			for (let row = 0; row < this.height - this.mergePixels; row += this.mergePixels) {
 				const result: Color[] = []
 
@@ -115,6 +138,31 @@ export class ImageDestroyer {
 					}
 				}
 
+				// const light = (this.average(result, 'r') + this.average(result, 'g') + this.average(result, 'b')) / 3
+				// if (light < 25) {
+				// 	str += '.'
+				// } else if (light < 50) {
+				// 	str += '-'
+				// } else if (light < 75) {
+				// 	str += '_'
+				// } else if (light < 100) {
+				// 	str += '!'
+				// } else if (light < 125) {
+				// 	str += '^'
+				// } else if (light < 150) {
+				// 	str += '*'
+				// } else if (light < 175) {
+				// 	str += '%'
+				// } else if (light < 200) {
+				// 	str += '#'
+				// } else if (light < 225) {
+				// 	str += '@'
+				// } else {
+				// 	str += '&'
+				// }
+				// if (str.length % (this.width / this.mergePixels) === 0) {
+				// 	str += '\n'
+				// }
 				this.renderPixels.push(
 					new Pixel(
 						this.canvas.width / 2 - this.width / 2 + col,
@@ -129,10 +177,11 @@ export class ImageDestroyer {
 				)
 			}
 		}
-		this.update()
+		// console.log(str)
+		this.update(0)
 	}
 
-	private async setImage(step: number) {
+	private async setImage() {
 		this.originPixels = new Map<string, PixelParams>()
 
 		const img = new Image()
@@ -173,7 +222,7 @@ export class ImageDestroyer {
 
 		this.clear()
 
-		for (let i = 0; i < data.length; i += step) {
+		for (let i = 0; i < data.length; i += 4) {
 			if (data[i + 3] > 127) {
 				this.originPixels.set(this.generateIndex((i / 4) % width, Math.floor(i / width / 4)), {
 					x: (i / 4) % width,
@@ -217,12 +266,7 @@ export class ImageDestroyer {
 			this.setCanvasSize()
 		}
 
-		await this.setImage(4)
-		// this.originPixels.forEach(pixel => {
-		// 	this.ctx.fillStyle = `rgba(${pixel.r},${pixel.g},${pixel.b},${pixel.a})`
-		// 	this.ctx.fillRect(pixel.x + 500, pixel.y, 4, 4)
-		// })
-
+		await this.setImage()
 		this.shakalizator()
 	}
 
@@ -232,25 +276,32 @@ export class ImageDestroyer {
 		this.canvas.removeEventListener('mouseup', this.mouseup)
 		this.canvas.removeEventListener('mousemove', this.mousemove)
 		cancelAnimationFrame(this.id)
+		this.base64 = ''
 		this.clear()
 	}
 
+	async resize() {
+		cancelAnimationFrame(this.id)
+		this.clear()
+		if (!this.base64) {
+			this.base64 = defaultImage
+		}
+		await this.setImage()
+		this.shakalizator()
+	}
 	async refresh() {
 		cancelAnimationFrame(this.id)
 		this.clear()
 		this.base64 = defaultImage
-		await this.setImage(4)
+		await this.setImage()
 		this.shakalizator()
 	}
 
 	start() {
-		this.paused = false
 		requestAnimationFrame(this.update.bind(this))
 	}
 
-	stop() {
-		this.paused = true
-	}
+	stop() {}
 
 	reset() {}
 }
