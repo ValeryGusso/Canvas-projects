@@ -614,7 +614,7 @@ export class Snake {
 
 	oneStep() {
 		this.calculator()
-		// this.step()
-		// this.draw()
+		this.step()
+		this.draw()
 	}
 }

@@ -123,9 +123,9 @@ export class ImageDestroyer {
 		this.renderPixels = []
 		// let str = ''
 
-		for (let col = 0; col < this.width - this.mergePixels; col += this.mergePixels) {
+		for (let row = 0; row < this.height - this.mergePixels; row += this.mergePixels) {
 			// str += '\n'
-			for (let row = 0; row < this.height - this.mergePixels; row += this.mergePixels) {
+			for (let col = 0; col < this.width - this.mergePixels; col += this.mergePixels) {
 				const result: Color[] = []
 
 				for (let x = 0; x < this.mergePixels; x++) {
@@ -159,9 +159,6 @@ export class ImageDestroyer {
 				// 	str += '@'
 				// } else {
 				// 	str += '&'
-				// }
-				// if (str.length % (this.width / this.mergePixels) === 0) {
-				// 	str += '\n'
 				// }
 				this.renderPixels.push(
 					new Pixel(
